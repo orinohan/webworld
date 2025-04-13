@@ -1,0 +1,1550 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>财务报表编辑器</title>
+    <!-- Add SheetJS library -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --primary-blue: #1e3a8a;
+            --secondary-blue: #2563eb;
+            --light-blue: #60a5fa;
+            --background: #f8fafc;
+            --text-color: #1e293b;
+            --border-color: #e2e8f0;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: var(--background);
+            color: var(--text-color);
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 20px;
+            overflow-x: auto;
+            width: 100%;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        .header h1 {
+            color: var(--primary-blue);
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .save-btn {
+            background-color: var(--secondary-blue);
+            color: white;
+        }
+
+        .export-btn {
+            background-color: #10b981;
+            color: white;
+        }
+
+        .company-info {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .info-row {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .ratio-display {
+            margin-left: 20px;
+            font-weight: bold;
+            white-space: nowrap;
+        }
+
+        .ratio-label {
+            margin-right: 10px;
+        }
+
+        .ratio-value {
+            color: var(--primary-blue);
+            margin-right: 15px;
+        }
+
+        .validation-message {
+            padding: 8px;
+            border-radius: 4px;
+            font-weight: bold;
+            min-width: 200px;
+            text-align: center;
+            margin-left: 20px;
+        }
+
+        .validation-success {
+            background-color: rgba(16, 185, 129, 0.2);
+            color: #065f46;
+            border: 1px solid #065f46;
+        }
+
+        .validation-error {
+            background-color: rgba(239, 68, 68, 0.2);
+            color: #991b1b;
+            border: 1px solid #991b1b;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+
+        th, td {
+            border: 1px solid var(--border-color);
+            padding: 12px 8px;
+            text-align: left;
+            height: 40px;
+        }
+
+        th {
+            background-color: var(--light-blue);
+            color: white;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            height: 32px;
+            padding: 6px 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            text-align: right;
+            font-size: 14px;
+            box-sizing: border-box;
+            vertical-align: middle;
+            line-height: 1.5;
+        }
+
+        input[type="text"][readonly] {
+            background-color: rgba(144, 238, 144, 0.1);
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            font-weight: bold;
+            height: 32px;
+            padding: 6px 10px;
+            vertical-align: middle;
+        }
+
+        .total-row {
+            font-weight: bold;
+            background-color: rgba(96, 165, 250, 0.1);
+        }
+
+        .total-row input {
+            font-weight: bold;
+            background-color: rgba(96, 165, 250, 0.1);
+        }
+
+        .highlight-row {
+            font-weight: bold;
+            background-color: rgba(144, 238, 144, 0.3);
+        }
+
+        .highlight-row input {
+            font-weight: normal;
+            background-color: white;
+        }
+
+        .highlight-cell {
+            font-weight: bold !important;
+            background-color: rgba(144, 238, 144, 0.3) !important;
+            color: #000 !important;
+            padding: 8px !important;
+            display: table-cell !important;
+        }
+
+        .highlight-cell input {
+            font-weight: bold !important;
+            background-color: rgba(144, 238, 144, 0.1) !important;
+            text-align: right !important;
+            padding-right: 10px !important;
+        }
+
+        .sub-item {
+            padding-left: 20px;
+        }
+
+        /* New tab styles */
+        .tab-container {
+            margin-bottom: 20px;
+        }
+
+        .tab-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .tab-button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            background-color: var(--border-color);
+            color: var(--text-color);
+            transition: all 0.3s;
+        }
+
+        .tab-button.active {
+            background-color: var(--secondary-blue);
+            color: white;
+        }
+
+        /* 小计和合计行的特殊样式 */
+        .total-row input[type="number"],
+        .highlight-row input[type="number"],
+        .highlight-cell input[type="number"] {
+            font-weight: bold;
+            background-color: rgba(144, 238, 144, 0.1);
+            text-align: right;
+            padding-right: 10px;
+        }
+
+        /* 确保只读输入框的样式一致 */
+        input[type="number"][readonly] {
+            background-color: rgba(144, 238, 144, 0.1);
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            font-weight: bold;
+        }
+
+        /* 调整表格单元格的内边距和行高 */
+        table td {
+            padding: 12px 8px;
+            vertical-align: middle;
+            height: 40px;
+        }
+
+        /* 调整表头单元格的内边距和行高 */
+        table th {
+            padding: 12px 8px;
+            height: 40px;
+        }
+
+        /* 确保数字列的宽度一致 */
+        table td:nth-child(3),
+        table td:nth-child(4),
+        table td:nth-child(7),
+        table td:nth-child(8) {
+            width: 240px;
+            min-width: 240px;
+            max-width: 240px;
+            text-align: right;
+        }
+
+        /* 调整表头数字列的宽度 */
+        table th:nth-child(3),
+        table th:nth-child(4),
+        table th:nth-child(7),
+        table th:nth-child(8) {
+            width: 240px;
+            min-width: 240px;
+            max-width: 240px;
+            text-align: right;
+        }
+
+        /* 调整行次列的宽度和对齐方式 */
+        table td:nth-child(2),
+        table td:nth-child(6),
+        table th:nth-child(2),
+        table th:nth-child(6) {
+            width: 60px;
+            min-width: 60px;
+            max-width: 60px;
+            text-align: center;
+        }
+
+        /* 调整项目列的宽度 */
+        table td:first-child,
+        table td:nth-child(5),
+        table th:first-child,
+        table th:nth-child(5) {
+            width: 300px;
+            min-width: 300px;
+            max-width: 300px;
+            text-align: left;
+        }
+
+        /* 报表标题样式 */
+        .statement-title {
+            text-align: center;
+            margin: 20px 0;
+            color: var(--primary-blue);
+            font-size: 24px;
+            font-weight: bold;
+            padding: 10px 0;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        /* 调整表格列宽 */
+        #income-statement table td:nth-child(3),
+        #income-statement table td:nth-child(4),
+        #income-statement table th:nth-child(3),
+        #income-statement table th:nth-child(4) {
+            width: 300px;
+            min-width: 300px;
+            max-width: 300px;
+        }
+
+        /* 保持资产负债表列宽不变 */
+        #balance-sheet table td:nth-child(3),
+        #balance-sheet table td:nth-child(4),
+        #balance-sheet table td:nth-child(7),
+        #balance-sheet table td:nth-child(8),
+        #balance-sheet table th:nth-child(3),
+        #balance-sheet table th:nth-child(4),
+        #balance-sheet table th:nth-child(7),
+        #balance-sheet table th:nth-child(8) {
+            width: 150px;
+            min-width: 150px;
+            max-width: 150px;
+        }
+
+        /* 调整表格整体宽度以适应更宽的列 */
+        #income-statement table {
+            width: auto;
+            min-width: 100%;
+            table-layout: fixed;
+        }
+
+        /* 确保数字输入框在更宽的单元格中也能正常显示 */
+        #income-statement input[type="number"] {
+            width: 100%;
+            padding: 6px 10px;
+            box-sizing: border-box;
+        }
+
+        /* 调整损益表列宽 */
+        /* 项目列宽度 - 再放大1.5倍 */
+        #income-statement table td:first-child,
+        #income-statement table th:first-child {
+            width: 675px;  /* 450px * 1.5 */
+            min-width: 675px;
+            max-width: 675px;
+            white-space: normal;
+            word-wrap: break-word;
+        }
+
+        /* 金额列宽度 */
+        #income-statement table td:nth-child(3),
+        #income-statement table td:nth-child(4),
+        #income-statement table th:nth-child(3),
+        #income-statement table th:nth-child(4) {
+            width: 300px;
+            min-width: 300px;
+            max-width: 300px;
+        }
+
+        /* 行次列宽度保持不变 */
+        #income-statement table td:nth-child(2),
+        #income-statement table th:nth-child(2) {
+            width: 80px;
+            min-width: 80px;
+            max-width: 80px;
+            text-align: center;
+        }
+
+        /* 添加币种说明样式 */
+        .currency-note {
+            font-size: 14px;
+            color: var(--text-color);
+            text-align: right;
+            margin: 10px 0;
+            font-style: italic;
+            font-weight: bold;
+        }
+
+        /* 调整表格容器样式 */
+        .table-container {
+            overflow-x: auto;
+            margin: 20px 0;
+            padding-bottom: 20px;
+            width: 100%;
+        }
+
+        /* 调整损益表布局 */
+        #income-statement {
+            width: 100%;
+            padding: 0;
+        }
+
+        #income-statement table {
+            min-width: 100%;
+            margin-bottom: 30px;
+        }
+
+        /* 调整表格滚动条样式 */
+        .table-container::-webkit-scrollbar {
+            height: 8px;
+        }
+
+        .table-container::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+
+        .table-container::-webkit-scrollbar-thumb {
+            background: var(--secondary-blue);
+            border-radius: 4px;
+        }
+
+        .table-container::-webkit-scrollbar-thumb:hover {
+            background: var(--primary-blue);
+        }
+
+        /* 修改tab-content的样式，确保内容可见 */
+        .tab-content {
+            display: none;
+            width: 100%;
+            overflow-x: auto;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>财务报表编辑器</h1>
+            <div class="action-buttons">
+                <button class="btn save-btn" onclick="saveData()">保存</button>
+                <button class="btn export-btn" onclick="exportData()">导出</button>
+            </div>
+        </div>
+
+        <div class="tab-container">
+            <div class="tab-buttons">
+                <button class="tab-button active" onclick="switchTab('balance-sheet')">资产负债表</button>
+                <button class="tab-button" onclick="switchTab('income-statement')">损益表</button>
+            </div>
+        </div>
+
+        <div id="balance-sheet" class="tab-content active">
+            <div class="company-info">
+                <div class="info-row">
+                    <input type="text" id="companyName" placeholder="公司名称">
+                    <input type="text" id="reportDate" placeholder="报告日期" onfocus="(this.type='date')">
+                </div>
+                <div class="info-row">
+                    <div class="ratio-display">
+                        <span class="ratio-label">所有者权益合计 Total owner's equity:</span>
+                        <span class="ratio-value">年初 Beginning: <span id="ownerEquityBeginning">0.00</span></span>
+                        <span class="ratio-value">年末 Ending: <span id="ownerEquityEnding">0.00</span></span>
+                    </div>
+                </div>
+                <div class="info-row">
+                    <div class="ratio-display">
+                        <span class="ratio-label">资产负债率 Debt-to-Asset Ratio:</span>
+                        <span class="ratio-value">年初 Beginning: <span id="debtToAssetRatioBeginning">0.00%</span></span>
+                        <span class="ratio-value">年末 Ending: <span id="debtToAssetRatioEnding">0.00%</span></span>
+                    </div>
+                    <div id="validationMessage" class="validation-message"></div>
+                </div>
+            </div>
+
+            <h2 class="statement-title">资产负债表 BALANCE SHEET</h2>
+            <div class="currency-note">Currency: USD</div>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>资产 Assets</th>
+                            <th>行次 Line No.</th>
+                            <th>年初余额 Beginning Balance</th>
+                            <th>期末余额 Ending Balance</th>
+                            <th>负债和所有者权益 Liabilities and Owner's Equity</th>
+                            <th>行次 Line No.</th>
+                            <th>年初余额 Beginning Balance</th>
+                            <th>期末余额 Ending Balance</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- 流动资产 Current Assets -->
+                        <tr>
+                            <td>流动资产 Current assets：</td>
+                            <td>1</td>
+                            <td></td>
+                            <td></td>
+                            <td>流动负债 Current liabilities:</td>
+                            <td>36</td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td>货币资金 Cash and Cash Equivalents</td>
+                            <td>2</td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td>短期借款 Short-term loans</td>
+                            <td>37</td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                        </tr>
+                        <tr>
+                            <td>短期投资 Short-term investment</td>
+                            <td>3</td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td>应付票据 Notes payable</td>
+                            <td>38</td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                        </tr>
+                        <tr>
+                            <td>应收票据 Notes receivable</td>
+                            <td>4</td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td>应付账款 Accounts payable</td>
+                            <td>39</td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                        </tr>
+                        <tr>
+                            <td>应收账款 Account receivable</td>
+                            <td>5</td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td>预收账款 Advances from customers</td>
+                            <td>40</td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                        </tr>
+                        <tr>
+                            <td>减：坏账准备 Less: Bad debt reserves</td>
+                            <td>6</td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td>其他应付款 Other Accounts Payable</td>
+                            <td>41</td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                        </tr>
+                        <tr>
+                            <td>应收账款净额 Net Account receivable</td>
+                            <td>7</td>
+                            <td><input type="text" readonly></td>
+                            <td><input type="text" readonly></td>
+                            <td>应付工资 Employee Wages & Salaries Payable</td>
+                            <td>42</td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                        </tr>
+                        <tr>
+                            <td>预付账款 Advances to Suppliers</td>
+                            <td>8</td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td>应付福利费 Welfare payable</td>
+                            <td>43</td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                        </tr>
+                        <tr>
+                            <td>其他应收款 Other receivables</td>
+                            <td>9</td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td>未交税金 Tax Payable</td>
+                            <td>44</td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                        </tr>
+                        <tr>
+                            <td>存货 Inventories</td>
+                            <td>10</td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td>未付利润 Unpaid profits</td>
+                            <td>45</td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                        </tr>
+                        <tr class="sub-item">
+                            <td>其中：原材料 Including: raw material</td>
+                            <td>11</td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td>其他未交款 Other unpaid</td>
+                            <td>46</td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                        </tr>
+                        <tr class="sub-item">
+                            <td>产成品 Finished goods</td>
+                            <td>12</td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td>预提费用 Provision for expenses</td>
+                            <td>47</td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                        </tr>
+                        <tr class="sub-item">
+                            <td>发出商品 Goods sold</td>
+                            <td>13</td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td>待扣税金 Tax to be deducted</td>
+                            <td>48</td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                        </tr>
+                        <tr>
+                            <td>待摊费用 Prepaid and deferred expenses</td>
+                            <td>14</td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td>一年内到期的长期负债 Long term liabilities due within one year</td>
+                            <td>49</td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                        </tr>
+                        <tr>
+                            <td>待处理流动资产净损失 Unsettled G/L on current assets</td>
+                            <td>15</td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td>其他流动负债 Other current liabilities</td>
+                            <td>50</td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                        </tr>
+                        <tr>
+                            <td>一年内到期的长期债券投资 Long-term debenture investment</td>
+                            <td>16</td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td class="highlight-cell">流动负债合计 Total current liabilities</td>
+                            <td>51</td>
+                            <td><input type="text" readonly></td>
+                            <td><input type="text" readonly></td>
+                        </tr>
+                        <tr>
+                            <td>其他流动资产 Other current assets</td>
+                            <td>17</td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td>长期借款 Long-term loans payable</td>
+                            <td>53</td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                        </tr>
+                        <tr>
+                            <td class="highlight-cell">流动资产合计 Total current assets</td>
+                            <td>18</td>
+                            <td><input type="text" readonly></td>
+                            <td><input type="text" readonly></td>
+                            <td>长期借款 Long-term loans payable</td>
+                            <td>53</td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                        </tr>
+                        <!-- 长期投资 Long-term Investment -->
+                        <tr>
+                            <td>长期投资：Long-term investment:</td>
+                            <td>19</td>
+                            <td></td>
+                            <td></td>
+                            <td>应付债券 Bonds payable</td>
+                            <td>54</td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                        </tr>
+                        <tr>
+                            <td>长期投资 Long-term investment</td>
+                            <td>20</td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td>长期应付款 Long-term accounts payable</td>
+                            <td>55</td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                        </tr>
+                        <!-- 固定资产 Fixed Assets -->
+                        <tr>
+                            <td>固定资产：Fixed assets:</td>
+                            <td>21</td>
+                            <td></td>
+                            <td></td>
+                            <td>其他长期负债 Other long-term liabilities</td>
+                            <td>56</td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                        </tr>
+                        <tr>
+                            <td>固定资产原价 Fixed assets-cost</td>
+                            <td>22</td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td>其中：住房周转金 Including: revolving fund of house</td>
+                            <td>57</td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td>减：累计折旧 Less: Accumulated Depreciation</td>
+                            <td>23</td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td class="highlight-cell">长期负债合计 Total long-term liabilities</td>
+                            <td>58</td>
+                            <td><input type="text" readonly></td>
+                            <td><input type="text" readonly></td>
+                        </tr>
+                        <tr>
+                            <td>固定资产净值 Fixed assets-net value</td>
+                            <td>24</td>
+                            <td><input type="text" readonly></td>
+                            <td><input type="text" readonly></td>
+                            <td class="highlight-cell">负债合计 Total liabilities</td>
+                            <td>59</td>
+                            <td><input type="text" readonly></td>
+                            <td><input type="text" readonly></td>
+                        </tr>
+                        <tr>
+                            <td>固定资产清理 Disposal of fixed assets</td>
+                            <td>25</td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td>所有者权益：Owner's equity:</td>
+                            <td>60</td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td>在建工程 Construction in Progress</td>
+                            <td>26</td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td>实收资本 Paid-in capital</td>
+                            <td>61</td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                        </tr>
+                        <tr>
+                            <td>待处理固定资产净损失 Unsettled G/L on fixed assets</td>
+                            <td>27</td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td>盈余公积 Surplus reserve</td>
+                            <td>63</td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                        </tr>
+                        <tr>
+                            <td class="highlight-cell">固定资产合计 Total fixed assets</td>
+                            <td>28</td>
+                            <td><input type="text" readonly></td>
+                            <td><input type="text" readonly></td>
+                            <td>盈余公积 Surplus reserve</td>
+                            <td>63</td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                        </tr>
+                        <!-- 无形及递延资产 Intangible and Deferred Assets -->
+                        <tr>
+                            <td>无形及递延资产：Intangible assets & Deferred assets</td>
+                            <td>29</td>
+                            <td></td>
+                            <td></td>
+                            <td>其中：公益金 Including: public welfare fund</td>
+                            <td>64</td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                        </tr>
+                        <tr>
+                            <td>无形资产（土地使用权）Intangible assets (Land-use right)</td>
+                            <td>30</td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td>未分配利润 Retained profits</td>
+                            <td>65</td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                        </tr>
+                        <tr>
+                            <td>递延资产 Deferred assets</td>
+                            <td>31</td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td class="highlight-cell">所有者权益合计 Total owner's equity</td>
+                            <td>66</td>
+                            <td><input type="text" readonly></td>
+                            <td><input type="text" readonly></td>
+                        </tr>
+                        <tr>
+                            <td class="highlight-cell">无形及递延资产合计 Total intangible assets & deferred assets</td>
+                            <td>32</td>
+                            <td><input type="text" readonly></td>
+                            <td><input type="text" readonly></td>
+                            <td></td>
+                            <td>68</td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+                        <!-- 其他资产 Other Assets -->
+                        <tr>
+                            <td>其他资产 Other assets</td>
+                            <td>33</td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td></td>
+                            <td>68</td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td>其他长期资产 Other long-term assets</td>
+                            <td>34</td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td><input type="text" onchange="calculateTotals()"></td>
+                            <td></td>
+                            <td>69</td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+                        <tr class="highlight-row">
+                            <td>资产总计 Total Assets</td>
+                            <td>35</td>
+                            <td><input type="text" readonly></td>
+                            <td><input type="text" readonly></td>
+                            <td>负债及所有者权益合计 Total Liabilities & Owner's Equity</td>
+                            <td>70</td>
+                            <td><input type="text" readonly></td>
+                            <td><input type="text" readonly></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="income-statement" class="tab-content">
+            <div class="company-info">
+                <input type="text" id="companyName-income" placeholder="公司名称">
+                <input type="text" id="reportDate-income" placeholder="报告日期" onfocus="(this.type='date')">
+                <div class="ratio-display">
+                    <span class="ratio-label">净利润率 Net Profit Margin:</span>
+                    <span class="ratio-value">上年 Previous: <span id="netProfitMarginCurrent">0.00%</span></span>
+                    <span class="ratio-value">本年 Current: <span id="netProfitMarginPrevious">0.00%</span></span>
+                </div>
+                <div id="validationMessage-income" class="validation-message"></div>
+            </div>
+
+            <h2 class="statement-title">损益表 INCOME STATEMENT</h2>
+            <div class="currency-note">Currency: USD</div>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>项目 ITEMS</th>
+                        <th>行次 LINE NO</th>
+                        <th>上年金额 Current Period</th>
+                        <th>本年金额 Previous Period</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>一、主营业务收入 Revenues</td>
+                        <td>1</td>
+                        <td><input type="text" onchange="calculateIncomeTotals()"></td>
+                        <td><input type="text" onchange="calculateIncomeTotals()"></td>
+                    </tr>
+                    <tr>
+                        <td>减：主营业务成本 Less: Cost of Sales</td>
+                        <td>2</td>
+                        <td><input type="text" onchange="calculateIncomeTotals()"></td>
+                        <td><input type="text" onchange="calculateIncomeTotals()"></td>
+                    </tr>
+                    <tr>
+                        <td>主营业务税金及附加 Sales Tax</td>
+                        <td>3</td>
+                        <td><input type="text" onchange="calculateIncomeTotals()"></td>
+                        <td><input type="text" onchange="calculateIncomeTotals()"></td>
+                    </tr>
+                    <tr>
+                        <td class="highlight-cell">二、主营业务利润（亏损以"-"号填列) Gross Profit ( - means loss)</td>
+                        <td>4</td>
+                        <td><input type="text" readonly></td>
+                        <td><input type="text" readonly></td>
+                    </tr>
+                    <tr>
+                        <td>加：其他业务收入（亏损以"-"号填列）Add: Other operating income</td>
+                        <td>5</td>
+                        <td><input type="text" onchange="calculateIncomeTotals()"></td>
+                        <td><input type="text" onchange="calculateIncomeTotals()"></td>
+                    </tr>
+                    <tr>
+                        <td>减：其他业务支出 Less: Other operating expense</td>
+                        <td>6</td>
+                        <td><input type="text" onchange="calculateIncomeTotals()"></td>
+                        <td><input type="text" onchange="calculateIncomeTotals()"></td>
+                    </tr>
+                    <tr>
+                        <td>减：营业费用 operating expense</td>
+                        <td>7</td>
+                        <td><input type="text" onchange="calculateIncomeTotals()"></td>
+                        <td><input type="text" onchange="calculateIncomeTotals()"></td>
+                    </tr>
+                    <tr>
+                        <td>管理费用 General and administrative expense</td>
+                        <td>8</td>
+                        <td><input type="text" onchange="calculateIncomeTotals()"></td>
+                        <td><input type="text" onchange="calculateIncomeTotals()"></td>
+                    </tr>
+                    <tr>
+                        <td>财务费用 Finance expense</td>
+                        <td>9</td>
+                        <td><input type="text" onchange="calculateIncomeTotals()"></td>
+                        <td><input type="text" onchange="calculateIncomeTotals()"></td>
+                    </tr>
+                    <tr>
+                        <td class="highlight-cell">三、营业利润（亏损以"-"号填列）Profit from operation ( - means loss)</td>
+                        <td>10</td>
+                        <td><input type="text" readonly></td>
+                        <td><input type="text" readonly></td>
+                    </tr>
+                    <tr>
+                        <td>加：投资收益（损失以"-"号填列）Add: Investment income</td>
+                        <td>11</td>
+                        <td><input type="text" onchange="calculateIncomeTotals()"></td>
+                        <td><input type="text" onchange="calculateIncomeTotals()"></td>
+                    </tr>
+                    <tr>
+                        <td>补贴收入 Subsidy Income</td>
+                        <td>12</td>
+                        <td><input type="text" onchange="calculateIncomeTotals()"></td>
+                        <td><input type="text" onchange="calculateIncomeTotals()"></td>
+                    </tr>
+                    <tr>
+                        <td>营业外收入 Non-operating income</td>
+                        <td>13</td>
+                        <td><input type="text" onchange="calculateIncomeTotals()"></td>
+                        <td><input type="text" onchange="calculateIncomeTotals()"></td>
+                    </tr>
+                    <tr>
+                        <td>减：营业外支出 Less: Non-operating expense</td>
+                        <td>14</td>
+                        <td><input type="text" onchange="calculateIncomeTotals()"></td>
+                        <td><input type="text" onchange="calculateIncomeTotals()"></td>
+                    </tr>
+                    <tr>
+                        <td class="highlight-cell">四、利润总额（亏损总额以"-"号填列）Profit before Tax</td>
+                        <td>15</td>
+                        <td><input type="text" readonly></td>
+                        <td><input type="text" readonly></td>
+                    </tr>
+                    <tr>
+                        <td>减：所得税 Less: Income tax</td>
+                        <td>16</td>
+                        <td><input type="text" onchange="calculateIncomeTotals()"></td>
+                        <td><input type="text" onchange="calculateIncomeTotals()"></td>
+                    </tr>
+                    <tr>
+                        <td class="highlight-cell">五、净利润（净亏损以"-"号填列）Net profit ( - means loss)</td>
+                        <td>17</td>
+                        <td><input type="text" readonly></td>
+                        <td><input type="text" readonly></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // Add number formatting functions
+        function formatNumber(value) {
+            if (value === '' || value === null || value === undefined) return '';
+            const num = parseFloat(value);
+            if (isNaN(num)) return value;
+            return num.toLocaleString('en-US', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+        }
+
+        function formatInput(input) {
+            const value = input.value.replace(/,/g, '');
+            const num = parseFloat(value);
+            if (!isNaN(num)) {
+                input.value = formatNumber(num);
+            }
+        }
+
+        // Add input event listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('input[type="text"]').forEach(input => {
+                // Add input event for real-time formatting
+                input.addEventListener('input', function(e) {
+                    // Allow only numbers, decimal point, and minus sign
+                    this.value = this.value.replace(/[^\d.-]/g, '');
+                    
+                    // Ensure only one decimal point
+                    if ((this.value.match(/\./g) || []).length > 1) {
+                        this.value = this.value.slice(0, -1);
+                    }
+                });
+
+                // Add blur event for final formatting
+                input.addEventListener('blur', function() {
+                    formatInput(this);
+                });
+            });
+        });
+
+        function calculateTotals() {
+            const table = document.querySelector('table');
+            const rows = table.querySelectorAll('tbody tr');
+            
+            // 计算应收账款净额 (7 = 5 - 6)
+            const arBeginning = parseFloat(rows[4].querySelector('td:nth-child(3) input').value.replace(/,/g, '')) || 0;
+            const arEnding = parseFloat(rows[4].querySelector('td:nth-child(4) input').value.replace(/,/g, '')) || 0;
+            const badDebtBeginning = parseFloat(rows[5].querySelector('td:nth-child(3) input').value.replace(/,/g, '')) || 0;
+            const badDebtEnding = parseFloat(rows[5].querySelector('td:nth-child(4) input').value.replace(/,/g, '')) || 0;
+            rows[6].querySelector('td:nth-child(3) input').value = formatNumber(arBeginning - badDebtBeginning);
+            rows[6].querySelector('td:nth-child(4) input').value = formatNumber(arEnding - badDebtEnding);
+
+            // 计算流动资产合计 (18 = 2+3+4+7+8+9+10+12+13+14+15+16+17)
+            let currentAssetsBeginning = 0;
+            let currentAssetsEnding = 0;
+            const currentAssetsRows = [2,3,4,7,8,9,10,12,13,14,15,16,17];
+            currentAssetsRows.forEach(row => {
+                const rowIndex = row - 1;
+                const beginningValue = parseFloat(rows[rowIndex].querySelector('td:nth-child(3) input').value.replace(/,/g, '')) || 0;
+                const endingValue = parseFloat(rows[rowIndex].querySelector('td:nth-child(4) input').value.replace(/,/g, '')) || 0;
+                currentAssetsBeginning += beginningValue;
+                currentAssetsEnding += endingValue;
+            });
+            rows[17].querySelector('td:nth-child(3) input').value = formatNumber(currentAssetsBeginning);
+            rows[17].querySelector('td:nth-child(4) input').value = formatNumber(currentAssetsEnding);
+
+            // 计算固定资产净值 (24 = 22 - 23)
+            const fixedAssetsCostBeginning = parseFloat(rows[21].querySelector('td:nth-child(3) input').value.replace(/,/g, '')) || 0;
+            const fixedAssetsCostEnding = parseFloat(rows[21].querySelector('td:nth-child(4) input').value.replace(/,/g, '')) || 0;
+            const accumulatedDepreciationBeginning = parseFloat(rows[22].querySelector('td:nth-child(3) input').value.replace(/,/g, '')) || 0;
+            const accumulatedDepreciationEnding = parseFloat(rows[22].querySelector('td:nth-child(4) input').value.replace(/,/g, '')) || 0;
+            rows[23].querySelector('td:nth-child(3) input').value = formatNumber(fixedAssetsCostBeginning - accumulatedDepreciationBeginning);
+            rows[23].querySelector('td:nth-child(4) input').value = formatNumber(fixedAssetsCostEnding - accumulatedDepreciationEnding);
+
+            // 计算固定资产合计 (28 = 24+25+26+27)
+            let fixedAssetsBeginning = 0;
+            let fixedAssetsEnding = 0;
+            const fixedAssetsRows = [24,25,26,27];
+            fixedAssetsRows.forEach(row => {
+                const rowIndex = row - 1;
+                fixedAssetsBeginning += parseFloat(rows[rowIndex].querySelector('td:nth-child(3) input').value.replace(/,/g, '')) || 0;
+                fixedAssetsEnding += parseFloat(rows[rowIndex].querySelector('td:nth-child(4) input').value.replace(/,/g, '')) || 0;
+            });
+            rows[27].querySelector('td:nth-child(3) input').value = formatNumber(fixedAssetsBeginning);
+            rows[27].querySelector('td:nth-child(4) input').value = formatNumber(fixedAssetsEnding);
+
+            // 计算无形及递延资产合计 (32 = 30+31)
+            let intangibleDeferredBeginning = 0;
+            let intangibleDeferredEnding = 0;
+            const intangibleDeferredRows = [30,31];
+            intangibleDeferredRows.forEach(row => {
+                // 注意：行次从1开始，但数组索引从0开始，所以需要减1
+                const rowIndex = row - 1;
+                const beginningValue = parseFloat(rows[rowIndex].querySelector('td:nth-child(3) input').value.replace(/,/g, '')) || 0;
+                const endingValue = parseFloat(rows[rowIndex].querySelector('td:nth-child(4) input').value.replace(/,/g, '')) || 0;
+                intangibleDeferredBeginning += beginningValue;
+                intangibleDeferredEnding += endingValue;
+            });
+            // 更新无形及递延资产合计行（第32行，索引为31）
+            rows[31].querySelector('td:nth-child(3) input').value = formatNumber(intangibleDeferredBeginning);
+            rows[31].querySelector('td:nth-child(4) input').value = formatNumber(intangibleDeferredEnding);
+
+            // 计算资产总计 (35 = 18+20+28+32+33+34)
+            const totalAssetsBeginning = currentAssetsBeginning + 
+                (parseFloat(rows[19].querySelector('td:nth-child(3) input').value.replace(/,/g, '')) || 0) + // 行次20
+                fixedAssetsBeginning + // 行次28
+                intangibleDeferredBeginning + // 行次32
+                (parseFloat(rows[32].querySelector('td:nth-child(3) input').value.replace(/,/g, '')) || 0) + // 行次33
+                (parseFloat(rows[33].querySelector('td:nth-child(3) input').value.replace(/,/g, '')) || 0); // 行次34
+            const totalAssetsEnding = currentAssetsEnding + 
+                (parseFloat(rows[19].querySelector('td:nth-child(4) input').value.replace(/,/g, '')) || 0) + // 行次20
+                fixedAssetsEnding + // 行次28
+                intangibleDeferredEnding + // 行次32
+                (parseFloat(rows[32].querySelector('td:nth-child(4) input').value.replace(/,/g, '')) || 0) + // 行次33
+                (parseFloat(rows[33].querySelector('td:nth-child(4) input').value.replace(/,/g, '')) || 0); // 行次34
+            rows[34].querySelector('td:nth-child(3) input').value = formatNumber(totalAssetsBeginning);
+            rows[34].querySelector('td:nth-child(4) input').value = formatNumber(totalAssetsEnding);
+
+            // 计算流动负债合计 (51 = 37+38+39+40+41+42+43+44+45+46+47+48+49+50)
+            let currentLiabilitiesBeginning = 0;
+            let currentLiabilitiesEnding = 0;
+            // 计算行次37到50的总和
+            for (let i = 1; i < rows.length; i++) {
+                const lineNo = parseInt(rows[i].querySelector('td:nth-child(6)').textContent);
+                if (lineNo >= 37 && lineNo <= 50) {
+                    const beginningValue = parseFloat(rows[i].querySelector('td:nth-child(7) input').value.replace(/,/g, '')) || 0;
+                    const endingValue = parseFloat(rows[i].querySelector('td:nth-child(8) input').value.replace(/,/g, '')) || 0;
+                    currentLiabilitiesBeginning += beginningValue;
+                    currentLiabilitiesEnding += endingValue;
+                }
+            }
+            // 更新流动负债合计行（第51行）
+            for (let i = 1; i < rows.length; i++) {
+                const lineNo = parseInt(rows[i].querySelector('td:nth-child(6)').textContent);
+                if (lineNo === 51) {
+                    rows[i].querySelector('td:nth-child(7) input').value = formatNumber(currentLiabilitiesBeginning);
+                    rows[i].querySelector('td:nth-child(8) input').value = formatNumber(currentLiabilitiesEnding);
+                    break;
+                }
+            }
+
+            // 计算长期负债合计 (58 = 56+55+54+53)
+            let longTermLiabilitiesBeginning = 0;
+            let longTermLiabilitiesEnding = 0;
+            // 计算行次53到56的总和
+            for (let i = 1; i < rows.length; i++) {
+                const lineNo = parseInt(rows[i].querySelector('td:nth-child(6)').textContent);
+                if (lineNo >= 53 && lineNo <= 56) {
+                    const beginningValue = parseFloat(rows[i].querySelector('td:nth-child(7) input').value.replace(/,/g, '')) || 0;
+                    const endingValue = parseFloat(rows[i].querySelector('td:nth-child(8) input').value.replace(/,/g, '')) || 0;
+                    longTermLiabilitiesBeginning += beginningValue;
+                    longTermLiabilitiesEnding += endingValue;
+                }
+            }
+            // 更新长期负债合计行（第58行）
+            for (let i = 1; i < rows.length; i++) {
+                const lineNo = parseInt(rows[i].querySelector('td:nth-child(6)').textContent);
+                if (lineNo === 58) {
+                    rows[i].querySelector('td:nth-child(7) input').value = formatNumber(longTermLiabilitiesBeginning);
+                    rows[i].querySelector('td:nth-child(8) input').value = formatNumber(longTermLiabilitiesEnding);
+                    break;
+                }
+            }
+
+            // 计算负债合计 (59 = 51 + 58)
+            const totalLiabilitiesBeginning = currentLiabilitiesBeginning + longTermLiabilitiesBeginning;
+            const totalLiabilitiesEnding = currentLiabilitiesEnding + longTermLiabilitiesEnding;
+            // 更新负债合计行（第59行）
+            for (let i = 1; i < rows.length; i++) {
+                const lineNo = parseInt(rows[i].querySelector('td:nth-child(6)').textContent);
+                if (lineNo === 59) {
+                    rows[i].querySelector('td:nth-child(7) input').value = formatNumber(totalLiabilitiesBeginning);
+                    rows[i].querySelector('td:nth-child(8) input').value = formatNumber(totalLiabilitiesEnding);
+                    break;
+                }
+            }
+
+            // 计算所有者权益合计 (66 = 61+62+63+65)
+            let ownerEquityBeginning = 0;
+            let ownerEquityEnding = 0;
+            // 计算行次61,62,63,65的总和
+            for (let i = 1; i < rows.length; i++) {
+                const lineNo = parseInt(rows[i].querySelector('td:nth-child(6)').textContent);
+                if (lineNo === 61 || lineNo === 62 || lineNo === 63 || lineNo === 65) {
+                    const beginningValue = parseFloat(rows[i].querySelector('td:nth-child(7) input').value.replace(/,/g, '')) || 0;
+                    const endingValue = parseFloat(rows[i].querySelector('td:nth-child(8) input').value.replace(/,/g, '')) || 0;
+                    ownerEquityBeginning += beginningValue;
+                    ownerEquityEnding += endingValue;
+                }
+            }
+            // 更新所有者权益合计行（第66行）
+            for (let i = 1; i < rows.length; i++) {
+                const lineNo = parseInt(rows[i].querySelector('td:nth-child(6)').textContent);
+                if (lineNo === 66) {
+                    rows[i].querySelector('td:nth-child(7) input').value = formatNumber(ownerEquityBeginning);
+                    rows[i].querySelector('td:nth-child(8) input').value = formatNumber(ownerEquityEnding);
+                    break;
+                }
+            }
+
+            // 更新所有者权益显示
+            const threshold = 450000;
+            document.getElementById('ownerEquityBeginning').textContent = ownerEquityBeginning > threshold ? '>45万' : '<45万';
+            document.getElementById('ownerEquityEnding').textContent = ownerEquityEnding > threshold ? '>45万' : '<45万';
+
+            // 计算负债及所有者权益合计 (70 = 59 + 66)
+            const totalLiabilitiesAndEquityBeginning = totalLiabilitiesBeginning + ownerEquityBeginning;
+            const totalLiabilitiesAndEquityEnding = totalLiabilitiesEnding + ownerEquityEnding;
+            // 更新负债及所有者权益合计行（第70行）
+            for (let i = 1; i < rows.length; i++) {
+                const lineNo = parseInt(rows[i].querySelector('td:nth-child(6)').textContent);
+                if (lineNo === 70) {
+                    rows[i].querySelector('td:nth-child(7) input').value = formatNumber(totalLiabilitiesAndEquityBeginning);
+                    rows[i].querySelector('td:nth-child(8) input').value = formatNumber(totalLiabilitiesAndEquityEnding);
+                    break;
+                }
+            }
+
+            // 计算资产负债率
+            let assetsBegin = 0;
+            let assetsEnd = 0;
+            let liabilitiesEquityBegin = 0;
+            let liabilitiesEquityEnd = 0;
+            
+            // 直接获取资产总计和负债及所有者权益合计的值
+            const totalAssetsRow = Array.from(rows).find(row => row.querySelector('td:first-child').textContent.includes('资产总计'));
+            const totalLiabilitiesEquityRow = Array.from(rows).find(row => row.querySelector('td:nth-child(5)').textContent.includes('负债及所有者权益合计'));
+            
+            if (totalAssetsRow) {
+                assetsBegin = parseFloat(totalAssetsRow.querySelector('td:nth-child(3) input').value.replace(/,/g, '')) || 0;
+                assetsEnd = parseFloat(totalAssetsRow.querySelector('td:nth-child(4) input').value.replace(/,/g, '')) || 0;
+            }
+            
+            if (totalLiabilitiesEquityRow) {
+                liabilitiesEquityBegin = parseFloat(totalLiabilitiesEquityRow.querySelector('td:nth-child(7) input').value.replace(/,/g, '')) || 0;
+                liabilitiesEquityEnd = parseFloat(totalLiabilitiesEquityRow.querySelector('td:nth-child(8) input').value.replace(/,/g, '')) || 0;
+            }
+            
+            // 计算资产负债率
+            let ratioBegin = 0;
+            let ratioEnd = 0;
+            if (assetsBegin > 0) {
+                ratioBegin = (liabilitiesEquityBegin / assetsBegin) * 100;
+            }
+            if (assetsEnd > 0) {
+                ratioEnd = (liabilitiesEquityEnd / assetsEnd) * 100;
+            }
+            
+            document.getElementById('debtToAssetRatioBeginning').textContent = ratioBegin.toFixed(2) + '%';
+            document.getElementById('debtToAssetRatioEnding').textContent = ratioEnd.toFixed(2) + '%';
+            
+            // 计算资产总计和负债及所有者权益合计的差额
+            const beginningDifference = Math.abs(assetsBegin - liabilitiesEquityBegin);
+            const endingDifference = Math.abs(assetsEnd - liabilitiesEquityEnd);
+            
+            const validationMessage = document.getElementById('validationMessage');
+            if (beginningDifference === 0 && endingDifference === 0) {
+                validationMessage.textContent = '恭喜！报表平衡！';
+                validationMessage.className = 'validation-message validation-success';
+            } else {
+                let message = '报表不平衡：';
+                if (beginningDifference > 0) {
+                    message += `年初差额：${formatNumber(beginningDifference)}；`;
+                }
+                if (endingDifference > 0) {
+                    message += `年末差额：${formatNumber(endingDifference)}`;
+                }
+                validationMessage.textContent = message;
+                validationMessage.className = 'validation-message validation-error';
+            }
+        }
+
+        function switchTab(tabId) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.classList.remove('active');
+            });
+
+            // Show selected tab
+            document.getElementById(tabId).classList.add('active');
+            document.querySelector(`[onclick="switchTab('${tabId}')"]`).classList.add('active');
+        }
+
+        function calculateIncomeTotals() {
+            const table = document.querySelector('#income-statement table');
+            const rows = table.querySelectorAll('tbody tr');
+            
+            // 计算主营业务利润 (4 = 1 - 2 - 3)
+            // 主营业务收入
+            const revenue = parseFloat(rows[0].querySelector('td:nth-child(3) input').value.replace(/,/g, '')) || 0;
+            const revenuePrev = parseFloat(rows[0].querySelector('td:nth-child(4) input').value.replace(/,/g, '')) || 0;
+            
+            // 主营业务成本
+            const costOfSales = parseFloat(rows[1].querySelector('td:nth-child(3) input').value.replace(/,/g, '')) || 0;
+            const costOfSalesPrev = parseFloat(rows[1].querySelector('td:nth-child(4) input').value.replace(/,/g, '')) || 0;
+            
+            // 主营业务税金及附加
+            const salesTax = parseFloat(rows[2].querySelector('td:nth-child(3) input').value.replace(/,/g, '')) || 0;
+            const salesTaxPrev = parseFloat(rows[2].querySelector('td:nth-child(4) input').value.replace(/,/g, '')) || 0;
+
+            // 主营业务利润 = 主营业务收入 - 主营业务成本 - 主营业务税金及附加
+            const grossProfit = revenue - costOfSales - salesTax;
+            const grossProfitPrev = revenuePrev - costOfSalesPrev - salesTaxPrev;
+            
+            // 更新主营业务利润行
+            rows[3].querySelector('td:nth-child(3) input').value = formatNumber(grossProfit);
+            rows[3].querySelector('td:nth-child(4) input').value = formatNumber(grossProfitPrev);
+
+            // 计算营业利润 (10 = 4 + 5 - 6 - 7 - 8 - 9)
+            // 其他业务收入
+            const otherIncome = parseFloat(rows[4].querySelector('td:nth-child(3) input').value.replace(/,/g, '')) || 0;
+            const otherIncomePrev = parseFloat(rows[4].querySelector('td:nth-child(4) input').value.replace(/,/g, '')) || 0;
+            
+            // 其他业务支出
+            const otherExpense = parseFloat(rows[5].querySelector('td:nth-child(3) input').value.replace(/,/g, '')) || 0;
+            const otherExpensePrev = parseFloat(rows[5].querySelector('td:nth-child(4) input').value.replace(/,/g, '')) || 0;
+            
+            // 营业费用
+            const operatingExpense = parseFloat(rows[6].querySelector('td:nth-child(3) input').value.replace(/,/g, '')) || 0;
+            const operatingExpensePrev = parseFloat(rows[6].querySelector('td:nth-child(4) input').value.replace(/,/g, '')) || 0;
+            
+            // 管理费用
+            const adminExpense = parseFloat(rows[7].querySelector('td:nth-child(3) input').value.replace(/,/g, '')) || 0;
+            const adminExpensePrev = parseFloat(rows[7].querySelector('td:nth-child(4) input').value.replace(/,/g, '')) || 0;
+            
+            // 财务费用
+            const financeExpense = parseFloat(rows[8].querySelector('td:nth-child(3) input').value.replace(/,/g, '')) || 0;
+            const financeExpensePrev = parseFloat(rows[8].querySelector('td:nth-child(4) input').value.replace(/,/g, '')) || 0;
+
+            // 营业利润 = 主营业务利润 + 其他业务收入 - 其他业务支出 - 营业费用 - 管理费用 - 财务费用
+            const operatingProfit = grossProfit + otherIncome - otherExpense - operatingExpense - adminExpense - financeExpense;
+            const operatingProfitPrev = grossProfitPrev + otherIncomePrev - otherExpensePrev - operatingExpensePrev - adminExpensePrev - financeExpensePrev;
+
+            // 更新营业利润行
+            rows[9].querySelector('td:nth-child(3) input').value = formatNumber(operatingProfit);
+            rows[9].querySelector('td:nth-child(4) input').value = formatNumber(operatingProfitPrev);
+
+            // 计算利润总额 (15 = 10 + 11 + 12 + 13 - 14)
+            // 投资收益
+            const investmentIncome = parseFloat(rows[10].querySelector('td:nth-child(3) input').value.replace(/,/g, '')) || 0;
+            const investmentIncomePrev = parseFloat(rows[10].querySelector('td:nth-child(4) input').value.replace(/,/g, '')) || 0;
+            
+            // 补贴收入
+            const subsidyIncome = parseFloat(rows[11].querySelector('td:nth-child(3) input').value.replace(/,/g, '')) || 0;
+            const subsidyIncomePrev = parseFloat(rows[11].querySelector('td:nth-child(4) input').value.replace(/,/g, '')) || 0;
+            
+            // 营业外收入
+            const nonOperatingIncome = parseFloat(rows[12].querySelector('td:nth-child(3) input').value.replace(/,/g, '')) || 0;
+            const nonOperatingIncomePrev = parseFloat(rows[12].querySelector('td:nth-child(4) input').value.replace(/,/g, '')) || 0;
+            
+            // 营业外支出
+            const nonOperatingExpense = parseFloat(rows[13].querySelector('td:nth-child(3) input').value.replace(/,/g, '')) || 0;
+            const nonOperatingExpensePrev = parseFloat(rows[13].querySelector('td:nth-child(4) input').value.replace(/,/g, '')) || 0;
+
+            // 利润总额 = 营业利润 + 投资收益 + 补贴收入 + 营业外收入 - 营业外支出
+            const profitBeforeTax = operatingProfit + investmentIncome + subsidyIncome + nonOperatingIncome - nonOperatingExpense;
+            const profitBeforeTaxPrev = operatingProfitPrev + investmentIncomePrev + subsidyIncomePrev + nonOperatingIncomePrev - nonOperatingExpensePrev;
+
+            // 更新利润总额行
+            rows[14].querySelector('td:nth-child(3) input').value = formatNumber(profitBeforeTax);
+            rows[14].querySelector('td:nth-child(4) input').value = formatNumber(profitBeforeTaxPrev);
+
+            // 计算净利润 (17 = 15 - 16)
+            // 所得税
+            const incomeTax = parseFloat(rows[15].querySelector('td:nth-child(3) input').value.replace(/,/g, '')) || 0;
+            const incomeTaxPrev = parseFloat(rows[15].querySelector('td:nth-child(4) input').value.replace(/,/g, '')) || 0;
+
+            // 净利润 = 利润总额 - 所得税
+            const netProfit = profitBeforeTax - incomeTax;
+            const netProfitPrev = profitBeforeTaxPrev - incomeTaxPrev;
+
+            // 更新净利润行
+            rows[16].querySelector('td:nth-child(3) input').value = formatNumber(netProfit);
+            rows[16].querySelector('td:nth-child(4) input').value = formatNumber(netProfitPrev);
+
+            // 计算净利润率
+            let netProfitMarginCurrent = 0;
+            let netProfitMarginPrevious = 0;
+            
+            if (revenue !== 0) {
+                netProfitMarginCurrent = (netProfit / revenue) * 100;
+            }
+            if (revenuePrev !== 0) {
+                netProfitMarginPrevious = (netProfitPrev / revenuePrev) * 100;
+            }
+            
+            const threshold = 2;
+            document.getElementById('netProfitMarginCurrent').textContent = netProfitMarginCurrent > threshold ? '>2%' : '<2%';
+            document.getElementById('netProfitMarginPrevious').textContent = netProfitMarginPrevious > threshold ? '>2%' : '<2%';
+        }
+
+        function saveData() {
+            const data = {
+                balanceSheet: {
+                    companyName: document.getElementById('companyName').value,
+                    reportDate: document.getElementById('reportDate').value,
+                    items: {}
+                },
+                incomeStatement: {
+                    companyName: document.getElementById('companyName-income').value,
+                    reportDate: document.getElementById('reportDate-income').value,
+                    items: {}
+                }
+            };
+
+            // Save balance sheet data
+            document.querySelectorAll('#balance-sheet tbody tr').forEach((row) => {
+                const itemName = row.querySelector('td:first-child').textContent;
+                data.balanceSheet.items[itemName] = {
+                    beginningBalance: row.querySelector('td:nth-child(3) input')?.value,
+                    endingBalance: row.querySelector('td:nth-child(4) input')?.value
+                };
+            });
+
+            // Save income statement data
+            document.querySelectorAll('#income-statement tbody tr').forEach((row) => {
+                const itemName = row.querySelector('td:first-child').textContent;
+                data.incomeStatement.items[itemName] = {
+                    currentPeriod: row.querySelector('td:nth-child(3) input')?.value,
+                    previousPeriod: row.querySelector('td:nth-child(4) input')?.value
+                };
+            });
+
+            localStorage.setItem('financialData', JSON.stringify(data));
+            alert('数据已保存！');
+        }
+
+        function exportData() {
+            // Create workbook
+            const wb = XLSX.utils.book_new();
+
+            // Helper function to format numbers
+            function formatNumber(value) {
+                if (value === '' || value === null || value === undefined) return '';
+                const num = parseFloat(value);
+                if (isNaN(num)) return value;
+                return num.toLocaleString('en-US', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                });
+            }
+
+            // Prepare balance sheet data
+            const balanceSheetData = [
+                ['资产负债表 BALANCE SHEET'],
+                ['公司名称:', document.getElementById('companyName').value],
+                ['报告日期:', document.getElementById('reportDate').value],
+                [''],
+                ['资产 Assets', '行次 Line No.', '年初余额 Beginning Balance', '期末余额 Ending Balance', 
+                 '负债和所有者权益 Liabilities and Owner\'s Equity', '行次 Line No.', '年初余额 Beginning Balance', '期末余额 Ending Balance']
+            ];
+
+            // Add balance sheet rows
+            document.querySelectorAll('#balance-sheet tbody tr').forEach(row => {
+                const cells = Array.from(row.querySelectorAll('td')).map(td => {
+                    const input = td.querySelector('input');
+                    if (input) {
+                        return formatNumber(input.value);
+                    }
+                    return td.textContent;
+                });
+                balanceSheetData.push(cells);
+            });
+
+            // Create balance sheet worksheet
+            const balanceSheetWS = XLSX.utils.aoa_to_sheet(balanceSheetData);
+            XLSX.utils.book_append_sheet(wb, balanceSheetWS, "资产负债表");
+
+            // Prepare income statement data
+            const incomeStatementData = [
+                ['损益表 INCOME STATEMENT'],
+                ['公司名称:', document.getElementById('companyName-income').value],
+                ['报告日期:', document.getElementById('reportDate-income').value],
+                [''],
+                ['项目 ITEMS', '行次 LINE NO', '上年金额 Current Period', '本年金额 Previous Period']
+            ];
+
+            // Add income statement rows
+            document.querySelectorAll('#income-statement tbody tr').forEach(row => {
+                const cells = Array.from(row.querySelectorAll('td')).map(td => {
+                    const input = td.querySelector('input');
+                    if (input) {
+                        return formatNumber(input.value);
+                    }
+                    return td.textContent;
+                });
+                incomeStatementData.push(cells);
+            });
+
+            // Create income statement worksheet
+            const incomeStatementWS = XLSX.utils.aoa_to_sheet(incomeStatementData);
+            XLSX.utils.book_append_sheet(wb, incomeStatementWS, "损益表");
+
+            // Generate Excel file
+            const fileName = `财务报表_${new Date().toISOString().split('T')[0]}.xlsx`;
+            XLSX.writeFile(wb, fileName);
+        }
+
+        window.onload = function() {
+            const savedData = localStorage.getItem('financialData');
+            if (savedData) {
+                const data = JSON.parse(savedData);
+                
+                // Load balance sheet data
+                if (data.balanceSheet) {
+                    document.getElementById('companyName').value = data.balanceSheet.companyName;
+                    document.getElementById('reportDate').value = data.balanceSheet.reportDate;
+                    
+                    Object.entries(data.balanceSheet.items).forEach(([itemName, values]) => {
+                        const row = Array.from(document.querySelectorAll('#balance-sheet tbody tr')).find(
+                            row => row.querySelector('td:first-child').textContent === itemName
+                        );
+                        if (row) {
+                            const beginningInput = row.querySelector('td:nth-child(3) input');
+                            const endingInput = row.querySelector('td:nth-child(4) input');
+                            if (beginningInput) beginningInput.value = formatNumber(values.beginningBalance);
+                            if (endingInput) endingInput.value = formatNumber(values.endingBalance);
+                        }
+                    });
+                    
+                    calculateTotals();
+                }
+
+                // Load income statement data
+                if (data.incomeStatement) {
+                    document.getElementById('companyName-income').value = data.incomeStatement.companyName;
+                    document.getElementById('reportDate-income').value = data.incomeStatement.reportDate;
+                    
+                    Object.entries(data.incomeStatement.items).forEach(([itemName, values]) => {
+                        const row = Array.from(document.querySelectorAll('#income-statement tbody tr')).find(
+                            row => row.querySelector('td:first-child').textContent === itemName
+                        );
+                        if (row) {
+                            const currentInput = row.querySelector('td:nth-child(3) input');
+                            const previousInput = row.querySelector('td:nth-child(4) input');
+                            if (currentInput) currentInput.value = formatNumber(values.currentPeriod);
+                            if (previousInput) previousInput.value = formatNumber(values.previousPeriod);
+                        }
+                    });
+                    
+                    calculateIncomeTotals();
+                }
+            }
+        };
+    </script>
+</body>
+</html> 
